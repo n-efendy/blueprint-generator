@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Blueprint Generator</title>
+</head>
+<body>
+  <label>Title: </label>
+  <input type="text" id="title" name="title" class="title" size="20">
+  <br/>
+  <br/>
+  <label>Description: </label>
+  <input type="text" id="desc" name="desc" class="desc" size="20">
+  <br/>
+  <br/>
+  <label for="type">Choose API Action:</label>
+  <select id="type">
+    <option value="GET">GET</option>
+    <option value="POST">POST</option>
+    <option value="PATCH">PATCH</option>
+    <option value="PUT">PUT</option>
+    <option value="DELETE">DELETE</option>
+  </select>
+  <br/>
+  <br/>
+  <label>API URL: </label>
+  <input type="text" id="apiURL" name="apiURL" class="apiURL" size="20">
+  <br/>
+  <br/>
+  <label for="auth">Select Authentication Type: </label>
+  <select id="auth">
+    <option value="basic">Basic Authentication</option>
+    <option value="user">User Authentication</option>
+    <option value="application">Application Authentication</option>
+  </select>
+  <br/>
+  <br/>
+  <label>API Response</label>
+  <br/>
+  <textarea id="response" rows="15" cols="70"></textarea>
+  <br/>
+  <button onclick="generateBlueprint()">Generate Blueprint</button>
+  <br/>
+  <br/>
+  <br/>
+  <label>Result</label>
+  <br/>
+  <textarea id="result" rows="15" cols="70"></textarea>
+  <br/>
+</body>
+</html>
+
+<script>
+  let parameterString = "";
+
+  function generateBlueprint() {
+    let result = "";
+
+    const title = document.getElementById("title").value;
+    const action = document.getElementById("type").value;
+
+    const apiURL = document.getElementById("apiURL").value;
+    const splitURL = apiURL.split("/");
+    const endpoint = getEndpoint(splitURL[5]);
+    const itemId = typeof(splitURL[6]) === "undefined" ? "" : "/{id}";
+    const description = document.getElementById("desc").value;
+    const auth = document.getElementById("auth").value;
+
+    // title
+    result += `## ${title} [${action} /${splitURL[3]}/${splitURL[4]}/${endpoint}${itemId}]\n\n`
+
+    // description
+    result += description + "\n\n";
+
+    // authentication policy
+    result += getAuthentication() + "\n\n";
+
+    // parameters
+    result += "+ Parameters\n"
+
+    if(itemId === "") {
+      result += parameterString + "\n";
+    } else {
+      result += `\t+ id: ${splitURL[6]} (number, required)\n\n`
+    }
+      
+    // request
+    result+= `+ Request (application/json)\n`;
+    result+= `\t+ Headers\n`;
+    result += `\t\t\tAuthorization: ${getAuthorizationPolicy()}\n\n`;
+    if(action === "POST" || action === "PATCH") {
+      result += `\t+ Attributes (object)\n`;
+      result += `\t\t+ Include New-Payload-Item\n\n`
+    }
+
+    // response
+    result += `+ Response {{.http_status.${getHttpStatus(action).toLowerCase()}}} (application/json)\n`;
+
+    // attributes
+    result += `\t+ Attributes (object)\n`
+
+    // data
+    result += `\t\t\t+ data (object, required)\n`
+    result += `\t\t\t\t\t+ Include New-Data-Item\n`
+
+    // meta
+    result += `\t\t\t+ meta (object, required)\n`
+    result += `\t\t\t\t\t+ Include HTTP-${getHttpStatus(action)}\n`
+    
+    // data structure
+    result += `\n\n## \`New-Data-Item\` (object)\n`
+    result += `\n\n## \`New-Payload-Item\` (object)\n`
+
+    // display result
+    document.getElementById("result").value = result;
+
+    // clear parameterString result
+    parameterString = "";
+  }
+
+  function getAuthentication() {
+    let auth = document.getElementById("auth").value;
+    let authTypeString = "";
+
+    switch(auth) {
+      case "basic":
+        authTypeString = "> BASIC AUTHENTICATION";
+        break;
+      case "user":
+        authTypeString = "> USER AUTHENTICATION. SCOPE: USER";
+        break;
+      case "application":
+        authTypeString =  "> APPLICATION AUTHENTICATION";
+        break;
+      default:
+      authTypeString = "";
+    }
+
+    return authTypeString;
+  }
+
+  function getEndpoint(urlString) {
+    if (urlString.includes("?")) {
+      let endpointSplit = urlString.split("?");
+      let endpoint = endpointSplit[0];
+      let params = endpointSplit[1].split("&");
+      let paramsResult = "{?";
+
+      // loop through params and remove values after =
+      params.forEach((n, i) => { 
+        paramsResult += `${n.split("=")[0]},`;
+        parameterString += `\t+ ${n.split("=")[0]}(${getParamType(n.split("=")[1])}, required)\n`
+      });
+      
+      // remove extra comma and close string
+      paramsResult = paramsResult.substring(0, paramsResult.length - 1);
+      paramsResult += "}";
+      
+      return endpoint + paramsResult;
+    } else {
+      return urlString;
+    }
+  }
+
+  function getParamType(type) {
+    if (isNaN(type)) {
+      return "string";
+    } else {
+      return "number";
+    }
+  }
+
+  function getHttpStatus(status) {
+    let result = "";
+    switch(status) {
+      case "GET":
+      case "PATCH":
+        result =  "OK";
+        break;
+      case "POST":
+        result = "Created";
+        break;
+      case "PUT":
+      case "DELETE":
+        result = "Accepted";
+        break;
+      default:
+        result = "";
+    }
+    return result;
+  }
+
+  function getAuthorizationPolicy(auth) {
+    if (auth == "user" || auth == "application") {
+      return "Bearer {{.bearer_token.user}}";
+    } else {
+      return "Token {{.bearer_token.basic}}";
+    }
+  }
+</script>
+
+<style>
+  button {
+    background-color: #498bf5;
+    border: none;
+    color: white;
+    padding: 7px 7px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    width: 250px;
+}
+
+  .apiURL {
+    width: 500px;
+  }
+
+  .title {
+    width: 200px;
+  }
+
+  .desc {
+    width: 200px;
+  }
+</style>
