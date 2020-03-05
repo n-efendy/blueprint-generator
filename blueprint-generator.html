@@ -37,10 +37,18 @@
   </select>
   <br/>
   <br/>
-  <label>API Response</label>
-  <br/>
-  <textarea id="response" rows="15" cols="70"></textarea>
-  <br/>
+  <div class="json-data">
+    <div>
+      <label>Request Payload</label>
+      <br/>
+      <textarea id="payload" rows="15" cols="70"></textarea>
+    </div>
+    <div class="response">
+      <label>API Response</label>
+      <br/>
+      <textarea id="response" rows="15" cols="70"></textarea>
+    </div>
+  </div>
   <button onclick="generateBlueprint()">Generate Blueprint</button>
   <br/>
   <br/>
@@ -57,6 +65,8 @@
 
   function generateBlueprint() {
     let result = "";
+    let dataParseString = "";
+    let requestParseString = "";
 
     const title = document.getElementById("title").value;
     const action = document.getElementById("type").value;
@@ -65,11 +75,15 @@
     const splitURL = apiURL.split("/");
     const endpoint = getEndpoint(splitURL[5]);
     const itemId = typeof(splitURL[6]) === "undefined" ? "" : "/{id}";
+
     const description = document.getElementById("desc").value;
     const auth = document.getElementById("auth").value;
 
+    const response = JSON.parse(document.getElementById("response").value);
+    const request = JSON.parse(document.getElementById("payload").value || "{}");
+
     // title
-    result += `## ${title} [${action} /${splitURL[3]}/${splitURL[4]}/${endpoint}${itemId}]\n\n`
+    result += `## ${title} [${action} /${splitURL[3]}/${splitURL[4]}/${endpoint}${itemId}]\n\n`;
 
     // description
     result += description + "\n\n";
@@ -78,12 +92,12 @@
     result += getAuthentication() + "\n\n";
 
     // parameters
-    result += "+ Parameters\n"
+    result += "+ Parameters\n";
 
     if(itemId === "") {
       result += parameterString + "\n";
     } else {
-      result += `\t+ id: ${splitURL[6]} (number, required)\n\n`
+      result += `\t+ id: ${splitURL[6]} (number, required)\n\n`;
     }
       
     // request
@@ -92,26 +106,31 @@
     result += `\t\t\tAuthorization: ${getAuthorizationPolicy()}\n\n`;
     if(action === "POST" || action === "PATCH") {
       result += `\t+ Attributes (object)\n`;
-      result += `\t\t+ Include New-Payload-Item\n\n`
+      result += `\t\t+ Include New-Payload-Item\n\n`;
     }
 
     // response
     result += `+ Response {{.http_status.${getHttpStatus(action).toLowerCase()}}} (application/json)\n`;
 
     // attributes
-    result += `\t+ Attributes (object)\n`
+    result += `\t+ Attributes (object)\n`;
 
     // data
-    result += `\t\t\t+ data (object, required)\n`
-    result += `\t\t\t\t\t+ Include New-Data-Item\n`
+    result += `\t\t\t+ data (object, required)\n`;
+    result += `\t\t\t\t\t+ Include New-Data-Item\n`;
 
     // meta
-    result += `\t\t\t+ meta (object, required)\n`
-    result += `\t\t\t\t\t+ Include HTTP-${getHttpStatus(action)}\n`
+    result += `\t\t\t+ meta (object, required)\n`;
+    result += `\t\t\t\t\t+ Include HTTP-${getHttpStatus(action)}\n`;
     
     // data structure
-    result += `\n\n## \`New-Data-Item\` (object)\n`
-    result += `\n\n## \`New-Payload-Item\` (object)\n`
+    result += `\n\n## \`New-Data-Item\` (object)\n`;
+    result += generateBlueprintData(dataParseString, response, 0);
+
+    if (action !== "GET" || action !== "DELETE") {
+      result += `\n\n## \`New-Payload-Item\` (object)\n`;
+      result += generateBlueprintData(requestParseString, request, 0);
+    }
 
     // display result
     document.getElementById("result").value = result;
@@ -199,6 +218,21 @@
       return "Token {{.bearer_token.basic}}";
     }
   }
+
+  function generateBlueprintData(resultString, payload, tabCounts) {
+    for (var key of Object.keys(payload)) {
+      if (typeof(payload[key]) === "object" && payload[key] !== null) {
+        resultString += `${'\t'.repeat(tabCounts * 2)}+ \`${key}\` (object, required)\n`
+        let parseResult = generateBlueprintData(resultString, payload[key], tabCounts + 1)
+        return parseResult;
+      } else {
+        let paramType = getParamType(payload[key]);
+        let value = paramType === "string" ? `\`${payload[key]}\`` : `${payload[key]}`;
+        resultString += `${'\t'.repeat(tabCounts * 2)}+ \`${key}\`: ${value} (${paramType}, required)\n`;
+      }
+    }
+    return resultString;
+  }
 </script>
 
 <style>
@@ -226,5 +260,20 @@
 
   .desc {
     width: 200px;
+  }
+
+  .request {
+    display: inline-block;
+    margin-right: 10px;
+  } 
+
+  .response {
+    margin-left: 30px;
+  } 
+
+  .json-data {
+    display: flex;
+    flex-direction: row;
+    margin-bottom: 20px;
   }
 </style>
