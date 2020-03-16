@@ -78,9 +78,17 @@
 
     const description = document.getElementById("desc").value;
     const auth = document.getElementById("auth").value;
+    
+    let response = ""
+    let request = ""
 
-    const response = JSON.parse(document.getElementById("response").value);
-    const request = JSON.parse(document.getElementById("payload").value || "{}");
+    if (document.getElementById("response").value !== "") {
+      response = JSON.parse(document.getElementById("response").value) || "{}";
+    }
+    
+    if (document.getElementById("payload").value !== "") {
+      request = JSON.parse(document.getElementById("payload").value || "{}");
+    }
 
     // title
     result += `## ${title} [${action} /${splitURL[3]}/${splitURL[4]}/${endpoint}${itemId}]\n\n`;
@@ -104,7 +112,8 @@
     result+= `+ Request (application/json)\n`;
     result+= `\t+ Headers\n`;
     result += `\t\t\tAuthorization: ${getAuthorizationPolicy()}\n\n`;
-    if(action === "POST" || action === "PATCH") {
+
+    if(action !== "GET" && action !== "DELETE" && Object.entries(request).length !== 0) {
       result += `\t+ Attributes (object)\n`;
       result += `\t\t+ Include New-Payload-Item\n\n`;
     }
@@ -123,12 +132,13 @@
     result += `\t\t\t+ meta (object, required)\n`;
     result += `\t\t\t\t\t+ Include HTTP-${getHttpStatus(action)}\n`;
     
-    // data structure
-    result += `\n\n## \`New-Data-Item\` (object)\n`;
+    // data structure - response
+    result += `\n\n## \`New-Response-Item\` (object)\n`;
     result += generateBlueprintData(dataParseString, response, 0);
 
+    // data structure - request
     if (action !== "GET" || action !== "DELETE") {
-      result += `\n\n## \`New-Payload-Item\` (object)\n`;
+      result += `\n\n## \`New-Request-Item\` (object)\n`;
       result += generateBlueprintData(requestParseString, request, 0);
     }
 
