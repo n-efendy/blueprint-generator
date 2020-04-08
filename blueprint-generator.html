@@ -232,7 +232,16 @@
   function generateBlueprintData(resultString, payload, tabCounts) {
     for (var key of Object.keys(payload)) {
       if (typeof(payload[key]) === "object" && payload[key] !== null) {
-        resultString += `${'\t'.repeat(tabCounts * 2)}+ \`${key}\` (object, required)\n`
+        // check for array
+        let itemKey = `\`${key}\``
+        let description = "(object, required)"
+        if (!isNaN(key)) {
+          itemKey = "";
+        } else {
+          description = "(array[object])"
+        }
+
+        resultString += `${'\t'.repeat(tabCounts * 2)}+ ${itemKey} ${description}\n`
         let parseResult = generateBlueprintData(resultString, payload[key], tabCounts + 1)
         return parseResult;
       } else {
